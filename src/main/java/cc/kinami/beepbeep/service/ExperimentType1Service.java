@@ -299,7 +299,12 @@ public class ExperimentType1Service {
                     experimentType1.getChirpParameters().getSoundSpeed()
             );
             System.out.println(((MWNumericArray) oriRst[0]).getDouble());
-            return ((MWNumericArray) oriRst[0]).getDouble();
+
+            matlabUtil.dispose();
+            double rst = ((MWNumericArray) oriRst[0]).getDouble();
+            ((MWNumericArray) oriRst[0]).dispose();
+
+            return rst;
         } catch (MWException e) {
             throw new KnownException(ErrorInfoEnum.MATLAB_ERROR);
         }

@@ -183,6 +183,7 @@ public class ExperimentType2Service {
         try {
             MatlabUtil matlabUtil = new MatlabUtil();
             matlabUtil.recordAnalysis(originalSignalFile, receivedSignalFile, experimentPath);
+            matlabUtil.dispose();
         } catch (MWException e) {
             throw new KnownException(ErrorInfoEnum.MATLAB_ERROR);
         }
