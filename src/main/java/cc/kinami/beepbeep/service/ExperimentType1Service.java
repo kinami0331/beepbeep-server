@@ -11,6 +11,9 @@ import cc.kinami.beepbeep.model.enums.ProcessControlEnum;
 import cc.kinami.beepbeep.repo.ExperimentType1Repository;
 import cc.kinami.beepbeep.util.MatlabUtil;
 import cc.kinami.beepbeep.websocket.DeviceWebSocket;
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mathworks.toolbox.javabuilder.MWException;
 import com.mathworks.toolbox.javabuilder.MWNumericArray;
 import lombok.AllArgsConstructor;
@@ -19,8 +22,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 
 @Service
@@ -213,9 +218,9 @@ public class ExperimentType1Service {
                 recordList.add("./" + EXPERIMENT_RELATIVE_PATH + experimentId + "/" + device1 + "_to_" + device2 + ".wav");
                 recordList.add("./" + EXPERIMENT_RELATIVE_PATH + experimentId + "/" + device2 + "_to_" + device1 + ".wav");
                 ArrayList<String> imageList = experimentType1.getImageList();
-                for (int k = 0; k < 7; k++)
+                for (int k = 1; k <= 7; k++)
                     imageList.add("./" + EXPERIMENT_RELATIVE_PATH + experimentId + "/" + device1 + "_to_" + device2 + "_fig" + k + ".png");
-                for (int k = 0; k < 7; k++)
+                for (int k = 1; k <= 7; k++)
                     imageList.add("./" + EXPERIMENT_RELATIVE_PATH + experimentId + "/" + device2 + "_to_" + device1 + "_fig" + k + ".png");
 
                 experimentType1.setRecordList(recordList);
@@ -225,7 +230,35 @@ public class ExperimentType1Service {
         double distance = computeDistanceOfTwoDevices(experimentId);
         experimentType1.setDistance(distance);
         experimentType1Repository.save(experimentType1);
+
+        saveConfigFile(experimentId);
+
         return experimentType1;
+
+    }
+
+    private void saveConfigFile(int exprId) {
+        ExperimentType1 experimentType1 = experimentType1Repository.findByExperimentId(exprId);
+        ObjectMapper objectMapper = new ObjectMapper();
+        String jsonStr = "";
+        try {
+            jsonStr = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(experimentType1);
+        } catch (JsonProcessingException e) {
+            throw new KnownException(ErrorInfoEnum.JSON_ERROR);
+        }
+        String tarFilePath = WEB_ROOT + EXPERIMENT_RELATIVE_PATH + exprId + "/info.json";
+        File tarFile = new File(tarFilePath);
+        if (tarFile.exists())
+            tarFile.delete();
+        try {
+            tarFile.createNewFile();
+            FileWriter fileWriter = new FileWriter(tarFile);
+            fileWriter.write(jsonStr);
+            fileWriter.flush();
+            fileWriter.close();
+        } catch (IOException e) {
+            throw new KnownException(ErrorInfoEnum.CREATE_FILE_ERROR);
+        }
 
     }
 
@@ -257,12 +290,14 @@ public class ExperimentType1Service {
             double m2s1 = experimentType1.getDeviceList().get(0).getM2sLength();
             double m2s2 = experimentType1.getDeviceList().get(1).getM2sLength();
             MatlabUtil matlabUtil = new MatlabUtil();
-            Object[] oriRst = matlabUtil.computeDistance(1, recordFile1, recordFile2, m2s1 / 100, m2s2 / 100,
+            Object[] oriRst = matlabUtil.calcDistance(1, recordFile1, recordFile2,
+                    WEB_ROOT + EXPERIMENT_RELATIVE_PATH + exprId + "/chirp.wav",
+                    m2s1 / 100, m2s2 / 100,
                     experimentType1.getChirpParameters().getSamplingRate(),
                     experimentType1.getChirpParameters().getLowerLimit(),
                     experimentType1.getChirpParameters().getUpperLimit(),
-                    experimentType1.getChirpParameters().getChirpTime(),
-                    experimentType1.getChirpParameters().getSoundSpeed());
+                    experimentType1.getChirpParameters().getSoundSpeed()
+            );
             System.out.println(((MWNumericArray) oriRst[0]).getDouble());
             return ((MWNumericArray) oriRst[0]).getDouble();
         } catch (MWException e) {

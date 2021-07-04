@@ -9,7 +9,9 @@ public enum ErrorInfoEnum {
     COMMON_ERROR(40000, "就是错了"),
     DEVICE_NOT_ONLINE(40001, "设备不在线，请检查实验设备"),
     MATLAB_ERROR(40002, "matlab库错误"),
-    NO_SUCH_SIGNAL_ERROR(40003, "没有这个信号");
+    NO_SUCH_SIGNAL_ERROR(40003, "没有这个信号"),
+    JSON_ERROR(40004, "JSON处理错误"),
+    CREATE_FILE_ERROR(40004, "创建文件错误");
 
     private final Integer errCode;
     private final String errMsg;
