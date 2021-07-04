@@ -40,7 +40,7 @@ saveas(fig,strcat(outputFigPath, "_fig2.png"));
 lags(1,maxIndex)/samplingRate
 
 fig = figure;
-tmpIndex1 = rangeStart1 - len1;
+tmpIndex1 = rangeStart1-len1;
 tmpIndex2 = rangeEnd1-len1;
 if tmpIndex1 <= 0
     tmpIndex1 = 1;
