@@ -171,6 +171,11 @@ public class ExperimentType1Service {
                 device1ws.waitUntil(ProcessControlEnum.START_RECORD_ACK);
                 device2ws.waitUntil(ProcessControlEnum.START_RECORD_ACK);
 
+                try {
+                    Thread.sleep(100);
+                } catch (Exception e) {
+                    throw new RuntimeException();
+                }
 
                 // 设备1发送
                 device1ws.sendControlInfo(ControlDTO.builder()
