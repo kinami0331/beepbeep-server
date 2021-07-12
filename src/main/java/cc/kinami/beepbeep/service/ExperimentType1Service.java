@@ -15,37 +15,35 @@ import cc.kinami.beepbeep.repo.BeepExprGroupRepository;
 import cc.kinami.beepbeep.repo.ExperimentType1Repository;
 import cc.kinami.beepbeep.util.MatlabUtil;
 import cc.kinami.beepbeep.websocket.DeviceWebSocket;
-import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.util.ByteArrayBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mathworks.toolbox.javabuilder.MWArray;
 import com.mathworks.toolbox.javabuilder.MWException;
 import com.mathworks.toolbox.javabuilder.MWNumericArray;
 import com.mathworks.toolbox.javabuilder.MWStringArray;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class ExperimentType1Service {
 
     static String WEB_ROOT;
-
     static String EXPERIMENT_RELATIVE_PATH = "experiment/type1/";
-
     ExperimentType1Repository experimentType1Repository;
-
     BeepExprGroupRepository beepExprGroupRepository;
 
     @Value("${beepbeep.static-dir}")
@@ -56,6 +54,7 @@ public class ExperimentType1Service {
             boolean rst = dir.mkdirs();
             assert rst;
         }
+        log.info("Set web root path: " + webRoot);
     }
 
     public synchronized String storeRecord(int id, String from, String to, MultipartFile file) {
@@ -86,9 +85,9 @@ public class ExperimentType1Service {
     }
 
     public int createExperiment(CreateExperimentType1DTO createExperimentType1DTO) {
+        long startTime = System.currentTimeMillis();
         ArrayList<DeviceInfo> deviceList = new ArrayList<>();
         for (String device : createExperimentType1DTO.getDeviceList()) {
-            System.out.println(device);
             if (DeviceWebSocket.getWebSocketMap().containsKey(device)) {
                 DeviceInfo deviceInfo = DeviceInfo.builder()
                         .deviceName(device)
@@ -109,16 +108,20 @@ public class ExperimentType1Service {
         ExperimentType1 experimentType1 = ExperimentType1.builder()
                 .experimentId(thisID)
                 .recordList(new ArrayList<>())
+                .deviceList(deviceList)
                 .imageList(new ArrayList<>())
                 .imageDescriptionList(new ArrayList<>())
                 .chirpParameters(createExperimentType1DTO.getChirpParameters())
                 .chirpFile(generateChirpFile(thisID, createExperimentType1DTO.getChirpParameters()))
                 .build();
         experimentType1Repository.save(experimentType1);
+        long endTime = System.currentTimeMillis();
+        log.info(String.format("Created new experiment[type1] in %d ms: entity=%s", (endTime - startTime), experimentType1));
         return thisID;
     }
 
     public int createExprGroup(CreateBeepExprGroupDTO createBeepExprGroupDTO) {
+        long startTime = System.currentTimeMillis();
         int thisID = beepExprGroupRepository.findLastExperimentId() + 1;
         BeepExprGroup beepExprGroup = BeepExprGroup.builder()
                 .experimentGroupId(thisID)
@@ -127,7 +130,10 @@ public class ExperimentType1Service {
                 .beepMultiExprList(new ArrayList<>())
                 .realDistance(createBeepExprGroupDTO.getRealDistance())
                 .build();
+
         beepExprGroupRepository.save(beepExprGroup);
+        long endTime = System.currentTimeMillis();
+        log.info(String.format("Created new experiment[type1] in %d ms group: entity=%s", (endTime - startTime), beepExprGroup));
         return thisID;
     }
 
@@ -156,6 +162,10 @@ public class ExperimentType1Service {
     }
 
     public ExperimentType1 experimentBegin(int experimentId) {
+        // 开始实验
+        log.info("Starting experiment[type1] " + experimentId);
+        long startTime = System.currentTimeMillis();
+
         ExperimentType1 experimentType1 = experimentType1Repository.findByExperimentId(experimentId);
         final CountDownLatch latch1 = new CountDownLatch(experimentType1.getDeviceList().size());
         for (DeviceInfo device : experimentType1.getDeviceList()) {
@@ -180,6 +190,7 @@ public class ExperimentType1Service {
             e.printStackTrace();
             throw new RuntimeException("latch 1 error");
         }
+        log.info("Experiment status: GET_CHIRP_ACK");
 
         // 两两一组进行测距
         for (int i = 0; i < experimentType1.getDeviceList().size(); i++) {
@@ -187,6 +198,8 @@ public class ExperimentType1Service {
 
                 String device1 = experimentType1.getDeviceList().get(i).getDeviceName();
                 String device2 = experimentType1.getDeviceList().get(j).getDeviceName();
+
+                log.info(String.format("Starting ranging device[%s] and device[%s]", device1, device2));
 
                 DeviceWebSocket device1ws = DeviceWebSocket.getDeviceWebSocket(device1);
                 DeviceWebSocket device2ws = DeviceWebSocket.getDeviceWebSocket(device2);
@@ -212,8 +225,10 @@ public class ExperimentType1Service {
                 device1ws.waitUntil(ProcessControlEnum.START_RECORD_ACK);
                 device2ws.waitUntil(ProcessControlEnum.START_RECORD_ACK);
 
+                log.info("Experiment status: START_RECORD_ACK");
+
                 try {
-                    Thread.sleep(100);
+                    Thread.sleep(50);
                 } catch (Exception e) {
                     e.printStackTrace();
                     throw new RuntimeException();
@@ -226,8 +241,9 @@ public class ExperimentType1Service {
                         .experimentType(1)
                         .build());
                 device1ws.waitUntil(ProcessControlEnum.PLAY_CHIRP_ACK);
+                log.info(String.format("Experiment status: PLAY_CHIRP_ACK by device[%s]", device1));
                 try {
-                    Thread.sleep(300);
+                    Thread.sleep(100);
                 } catch (Exception e) {
                     e.printStackTrace();
                     throw new RuntimeException();
@@ -240,8 +256,9 @@ public class ExperimentType1Service {
                         .experimentType(1)
                         .build());
                 device2ws.waitUntil(ProcessControlEnum.PLAY_CHIRP_ACK);
+                log.info(String.format("Experiment status: PLAY_CHIRP_ACK by device[%s]", device2));
                 try {
-                    Thread.sleep(300);
+                    Thread.sleep(100);
                 } catch (Exception e) {
                     e.printStackTrace();
                     throw new RuntimeException();
@@ -263,6 +280,7 @@ public class ExperimentType1Service {
                         .build());
                 device1ws.waitUntil(ProcessControlEnum.FINISH_RECORD_ACK);
                 device2ws.waitUntil(ProcessControlEnum.FINISH_RECORD_ACK);
+                log.info("Experiment status: FINISH_RECORD_ACK");
                 List<String> recordList = experimentType1.getRecordList();
                 recordList.add("./" + EXPERIMENT_RELATIVE_PATH + experimentId + "/" + device1 + "_to_" + device2 + ".wav");
                 recordList.add("./" + EXPERIMENT_RELATIVE_PATH + experimentId + "/" + device2 + "_to_" + device1 + ".wav");
@@ -271,11 +289,16 @@ public class ExperimentType1Service {
             }
         }
 
+        // 统计采集数据的用时
+        long endTime = System.currentTimeMillis();
+        log.info("Experiment: Data acquisition completed in " + (endTime - startTime) + " ms");
+
 
         computeDistanceOfTwoDevices(experimentId, experimentType1);
         experimentType1Repository.save(experimentType1);
         saveConfigFile(experimentId);
 
+        log.info("Finish experiment[type1] " + experimentId);
         return experimentType1;
 
     }
@@ -309,8 +332,11 @@ public class ExperimentType1Service {
 
     private String generateChirpFile(int exprId, ChirpParameters argument) {
         String tarFile = WEB_ROOT + EXPERIMENT_RELATIVE_PATH + exprId + "/chirp.wav";
-
+        PrintStream out = System.out;
         try {
+            // 重定向输出
+            ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+            System.setOut(new PrintStream(byteArrayBuilder));
             MatlabUtil matlabUtil = new MatlabUtil();
             matlabUtil.generateChirpFile(argument.getSamplingRate(),
                     argument.getLowerLimit(),
@@ -320,19 +346,21 @@ public class ExperimentType1Service {
                     tarFile);
             matlabUtil.dispose();
         } catch (MWException e) {
+            System.out.println(e.getMessage());
+            System.out.println(e.getLocalizedMessage());
             e.printStackTrace();
             throw new KnownException(ErrorInfoEnum.MATLAB_ERROR);
+        } finally {
+            System.setOut(out);
         }
         return "./" + EXPERIMENT_RELATIVE_PATH + exprId + "/chirp.wav";
     }
 
     private void computeDistanceOfTwoDevices(int exprId, ExperimentType1 experimentType1) {
         try {
+            long startTime = System.currentTimeMillis();
             String recordFile1 = WEB_ROOT + experimentType1.getRecordList().get(0).substring(2);
             String recordFile2 = WEB_ROOT + experimentType1.getRecordList().get(1).substring(2);
-            System.out.println(recordFile1);
-
-            System.out.println(recordFile2);
             double m2s1 = experimentType1.getDeviceList().get(0).getM2sLength();
             double m2s2 = experimentType1.getDeviceList().get(1).getM2sLength();
             MatlabUtil matlabUtil = new MatlabUtil();
@@ -344,9 +372,9 @@ public class ExperimentType1Service {
                     experimentType1.getChirpParameters().getUpperLimit(),
                     experimentType1.getChirpParameters().getSoundSpeed()
             );
-            System.out.println(((MWNumericArray) oriRst[0]).getDouble());
-            System.out.println(Arrays.asList(((MWStringArray) oriRst[1]).toArray()));
-            System.out.println(Arrays.asList(((MWStringArray) oriRst[2]).toArray()));
+            log.info(String.format("Calculated distance: %f", ((MWNumericArray) oriRst[0]).getDouble()));
+            log.info(String.format("Image List: %s", Arrays.asList(((MWStringArray) oriRst[1]).toArray())));
+            log.info(String.format("Image Description List: %s", Arrays.asList(((MWStringArray) oriRst[2]).toArray())));
 
             // 设置计算后的距离
             double rst = ((MWNumericArray) oriRst[0]).getDouble();
@@ -356,14 +384,14 @@ public class ExperimentType1Service {
             for (String imgFilename : ((String[]) ((MWStringArray) oriRst[1]).toArray()))
                 imageList.add("./" + EXPERIMENT_RELATIVE_PATH + exprId + "/" + imgFilename);
             experimentType1.setImageList(imageList);
-            // 设置图片描述
-
 
             matlabUtil.dispose();
             ((MWArray) oriRst[0]).dispose();
             ((MWArray) oriRst[1]).dispose();
             ((MWArray) oriRst[2]).dispose();
 
+            long endTime = System.currentTimeMillis();
+            log.info("Matlab Util: distance calculation completed in " + (endTime - startTime) + " ms");
 
         } catch (MWException e) {
             e.printStackTrace();

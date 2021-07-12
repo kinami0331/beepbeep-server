@@ -2,8 +2,11 @@ package cc.kinami.beepbeep.websocket;
 
 import cc.kinami.beepbeep.model.dto.ControlDTO;
 import cc.kinami.beepbeep.model.enums.ProcessControlEnum;
+import cc.kinami.beepbeep.service.ExperimentType1Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import javax.websocket.*;
@@ -16,6 +19,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Getter
 @ServerEndpoint(value = "/ws/{deviceID}/{speakerToMicrophoneDistance}")
 public class DeviceWebSocket {
+
+    private final static Logger logger = LoggerFactory.getLogger(DeviceWebSocket.class);
 
     @Getter
     private static final ConcurrentHashMap<String, DeviceWebSocket> webSocketMap = new ConcurrentHashMap<>();
@@ -69,13 +74,11 @@ public class DeviceWebSocket {
     public void onOpen(Session session, @PathParam("deviceID") String deviceID,
                        @PathParam("speakerToMicrophoneDistance") Double speakerToMicrophoneDistance) {
         this.session = session;
-        System.out.println(session.getPathParameters());
         webSocketMap.put(deviceID, this);
         this.deviceID = deviceID;
         this.speakerToMicrophoneDistance = speakerToMicrophoneDistance;
-        System.out.println("id: " + deviceID);
-        System.out.println("M2S: " + speakerToMicrophoneDistance);
-        System.out.println(session.getRequestURI());
+
+        logger.info("New device connected: id = " + deviceID + ", speakerToMicrophoneDistance = " + speakerToMicrophoneDistance);
     }
 
     @OnClose
@@ -85,7 +88,7 @@ public class DeviceWebSocket {
 
     @OnMessage
     public void onMessage(String message, Session session) {
-        System.out.println(message);
+        logger.info("Received message: " + message);
         try {
             ObjectMapper mapper = new ObjectMapper();
             ControlDTO controlDTO = mapper.readValue(message, ControlDTO.class);

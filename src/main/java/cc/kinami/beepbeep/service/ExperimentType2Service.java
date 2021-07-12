@@ -42,7 +42,7 @@ public class ExperimentType2Service {
         }
 
         String relativeSignalPath = EXPERIMENT_RELATIVE_PATH + "_signals/with_warming_up/";
-        System.out.println(relativeSignalPath);
+//        System.out.println(relativeSignalPath);
         dir = new File(ExperimentType2Service.WEB_ROOT + relativeSignalPath);
         if (!dir.exists()) {
             boolean rst = dir.mkdirs();
