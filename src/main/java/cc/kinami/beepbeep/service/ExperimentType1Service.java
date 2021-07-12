@@ -2,20 +2,26 @@ package cc.kinami.beepbeep.service;
 
 import cc.kinami.beepbeep.exception.ErrorInfoEnum;
 import cc.kinami.beepbeep.exception.KnownException;
+import cc.kinami.beepbeep.model.dto.AddMultiExprDTO;
 import cc.kinami.beepbeep.model.dto.ControlDTO;
+import cc.kinami.beepbeep.model.dto.CreateBeepExprGroupDTO;
 import cc.kinami.beepbeep.model.dto.CreateExperimentType1DTO;
+import cc.kinami.beepbeep.model.entity.BeepExprGroup;
 import cc.kinami.beepbeep.model.entity.DeviceInfo;
 import cc.kinami.beepbeep.model.entity.ExperimentType1;
 import cc.kinami.beepbeep.model.entity.ChirpParameters;
 import cc.kinami.beepbeep.model.enums.ProcessControlEnum;
+import cc.kinami.beepbeep.repo.BeepExprGroupRepository;
 import cc.kinami.beepbeep.repo.ExperimentType1Repository;
 import cc.kinami.beepbeep.util.MatlabUtil;
 import cc.kinami.beepbeep.websocket.DeviceWebSocket;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mathworks.toolbox.javabuilder.MWArray;
 import com.mathworks.toolbox.javabuilder.MWException;
 import com.mathworks.toolbox.javabuilder.MWNumericArray;
+import com.mathworks.toolbox.javabuilder.MWStringArray;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -25,6 +31,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 
@@ -37,6 +45,8 @@ public class ExperimentType1Service {
     static String EXPERIMENT_RELATIVE_PATH = "experiment/type1/";
 
     ExperimentType1Repository experimentType1Repository;
+
+    BeepExprGroupRepository beepExprGroupRepository;
 
     @Value("${beepbeep.static-dir}")
     public void setWebRoot(String webRoot) {
@@ -64,6 +74,7 @@ public class ExperimentType1Service {
         try {
             file.transferTo(new File(tarFullPath));
         } catch (IOException ioe) {
+            ioe.printStackTrace();
             throw new RuntimeException(ioe);
         }
 
@@ -95,23 +106,53 @@ public class ExperimentType1Service {
             boolean rst = dir.mkdir();
             assert rst;
         }
-        ExperimentType1 experimentType1 = new ExperimentType1();
-        experimentType1.setDeviceList(deviceList);
-        // 设置各个属性
-        experimentType1.setExperimentId(thisID);
-        experimentType1.setRecordList(new ArrayList<>());
-        experimentType1.setImageList(new ArrayList<>());
-        experimentType1.setChirpParameters(createExperimentType1DTO.getChirpParameters());
-        String chirpFile = generateChirpFile(thisID, experimentType1.getChirpParameters());
-        experimentType1.setChirpFile(chirpFile);
+        ExperimentType1 experimentType1 = ExperimentType1.builder()
+                .experimentId(thisID)
+                .recordList(new ArrayList<>())
+                .imageList(new ArrayList<>())
+                .imageDescriptionList(new ArrayList<>())
+                .chirpParameters(createExperimentType1DTO.getChirpParameters())
+                .chirpFile(generateChirpFile(thisID, createExperimentType1DTO.getChirpParameters()))
+                .build();
         experimentType1Repository.save(experimentType1);
         return thisID;
     }
 
+    public int createExprGroup(CreateBeepExprGroupDTO createBeepExprGroupDTO) {
+        int thisID = beepExprGroupRepository.findLastExperimentId() + 1;
+        BeepExprGroup beepExprGroup = BeepExprGroup.builder()
+                .experimentGroupId(thisID)
+                .deviceList(createBeepExprGroupDTO.getDeviceList())
+                .exprAbstract(createBeepExprGroupDTO.getExprAbstract())
+                .beepMultiExprList(new ArrayList<>())
+                .realDistance(createBeepExprGroupDTO.getRealDistance())
+                .build();
+        beepExprGroupRepository.save(beepExprGroup);
+        return thisID;
+    }
+
+    public void addMultiExpr(AddMultiExprDTO addMultiExprDTO) {
+        BeepExprGroup beepExprGroup = beepExprGroupRepository.findByExperimentGroupId(addMultiExprDTO.getExperimentGroupId());
+        beepExprGroup.getBeepMultiExprList().add(addMultiExprDTO.getBeepMultiExpr());
+        beepExprGroupRepository.save(beepExprGroup);
+    }
+
+    public ExperimentType1 getExpr(int id) {
+        return experimentType1Repository.findByExperimentId(id);
+    }
+
+    public BeepExprGroup getExprGroup(int id) {
+        return beepExprGroupRepository.findByExperimentGroupId(id);
+    }
+
+    public List<BeepExprGroup> getExprGroupList() {
+        return beepExprGroupRepository.findAll();
+    }
+
+
     public String getChirpFile(int exprId) {
         ExperimentType1 experimentType1 = experimentType1Repository.findByExperimentId(exprId);
-        String relativePath = experimentType1.getChirpFile();
-        return relativePath;
+        return experimentType1.getChirpFile();
     }
 
     public ExperimentType1 experimentBegin(int experimentId) {
@@ -136,13 +177,13 @@ public class ExperimentType1Service {
         try {
             latch1.await();
         } catch (Exception e) {
+            e.printStackTrace();
             throw new RuntimeException("latch 1 error");
         }
 
         // 两两一组进行测距
         for (int i = 0; i < experimentType1.getDeviceList().size(); i++) {
             for (int j = i + 1; j < experimentType1.getDeviceList().size(); j++) {
-                System.out.println("??");
 
                 String device1 = experimentType1.getDeviceList().get(i).getDeviceName();
                 String device2 = experimentType1.getDeviceList().get(j).getDeviceName();
@@ -174,6 +215,7 @@ public class ExperimentType1Service {
                 try {
                     Thread.sleep(100);
                 } catch (Exception e) {
+                    e.printStackTrace();
                     throw new RuntimeException();
                 }
 
@@ -185,8 +227,9 @@ public class ExperimentType1Service {
                         .build());
                 device1ws.waitUntil(ProcessControlEnum.PLAY_CHIRP_ACK);
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(300);
                 } catch (Exception e) {
+                    e.printStackTrace();
                     throw new RuntimeException();
                 }
 
@@ -198,8 +241,9 @@ public class ExperimentType1Service {
                         .build());
                 device2ws.waitUntil(ProcessControlEnum.PLAY_CHIRP_ACK);
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(300);
                 } catch (Exception e) {
+                    e.printStackTrace();
                     throw new RuntimeException();
                 }
                 // 设备1和设备2接收
@@ -219,23 +263,17 @@ public class ExperimentType1Service {
                         .build());
                 device1ws.waitUntil(ProcessControlEnum.FINISH_RECORD_ACK);
                 device2ws.waitUntil(ProcessControlEnum.FINISH_RECORD_ACK);
-                ArrayList<String> recordList = experimentType1.getRecordList();
+                List<String> recordList = experimentType1.getRecordList();
                 recordList.add("./" + EXPERIMENT_RELATIVE_PATH + experimentId + "/" + device1 + "_to_" + device2 + ".wav");
                 recordList.add("./" + EXPERIMENT_RELATIVE_PATH + experimentId + "/" + device2 + "_to_" + device1 + ".wav");
-                ArrayList<String> imageList = experimentType1.getImageList();
-                for (int k = 1; k <= 7; k++)
-                    imageList.add("./" + EXPERIMENT_RELATIVE_PATH + experimentId + "/" + device1 + "_to_" + device2 + "_fig" + k + ".png");
-                for (int k = 1; k <= 7; k++)
-                    imageList.add("./" + EXPERIMENT_RELATIVE_PATH + experimentId + "/" + device2 + "_to_" + device1 + "_fig" + k + ".png");
 
                 experimentType1.setRecordList(recordList);
             }
         }
 
-        double distance = computeDistanceOfTwoDevices(experimentId);
-        experimentType1.setDistance(distance);
-        experimentType1Repository.save(experimentType1);
 
+        computeDistanceOfTwoDevices(experimentId, experimentType1);
+        experimentType1Repository.save(experimentType1);
         saveConfigFile(experimentId);
 
         return experimentType1;
@@ -249,6 +287,7 @@ public class ExperimentType1Service {
         try {
             jsonStr = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(experimentType1);
         } catch (JsonProcessingException e) {
+            e.printStackTrace();
             throw new KnownException(ErrorInfoEnum.JSON_ERROR);
         }
         String tarFilePath = WEB_ROOT + EXPERIMENT_RELATIVE_PATH + exprId + "/info.json";
@@ -262,6 +301,7 @@ public class ExperimentType1Service {
             fileWriter.flush();
             fileWriter.close();
         } catch (IOException e) {
+            e.printStackTrace();
             throw new KnownException(ErrorInfoEnum.CREATE_FILE_ERROR);
         }
 
@@ -278,15 +318,16 @@ public class ExperimentType1Service {
                     argument.getChirpTime(),
                     argument.getPrepareTime(),
                     tarFile);
+            matlabUtil.dispose();
         } catch (MWException e) {
             e.printStackTrace();
+            throw new KnownException(ErrorInfoEnum.MATLAB_ERROR);
         }
         return "./" + EXPERIMENT_RELATIVE_PATH + exprId + "/chirp.wav";
     }
 
-    private double computeDistanceOfTwoDevices(int exprId) {
+    private void computeDistanceOfTwoDevices(int exprId, ExperimentType1 experimentType1) {
         try {
-            ExperimentType1 experimentType1 = experimentType1Repository.findByExperimentId(exprId);
             String recordFile1 = WEB_ROOT + experimentType1.getRecordList().get(0).substring(2);
             String recordFile2 = WEB_ROOT + experimentType1.getRecordList().get(1).substring(2);
             System.out.println(recordFile1);
@@ -295,7 +336,7 @@ public class ExperimentType1Service {
             double m2s1 = experimentType1.getDeviceList().get(0).getM2sLength();
             double m2s2 = experimentType1.getDeviceList().get(1).getM2sLength();
             MatlabUtil matlabUtil = new MatlabUtil();
-            Object[] oriRst = matlabUtil.calcDistance(1, recordFile1, recordFile2,
+            Object[] oriRst = matlabUtil.calcDistance(3, recordFile1, recordFile2,
                     WEB_ROOT + EXPERIMENT_RELATIVE_PATH + exprId + "/chirp.wav",
                     m2s1 / 100, m2s2 / 100,
                     experimentType1.getChirpParameters().getSamplingRate(),
@@ -304,14 +345,30 @@ public class ExperimentType1Service {
                     experimentType1.getChirpParameters().getSoundSpeed()
             );
             System.out.println(((MWNumericArray) oriRst[0]).getDouble());
+            System.out.println(Arrays.asList(((MWStringArray) oriRst[1]).toArray()));
+            System.out.println(Arrays.asList(((MWStringArray) oriRst[2]).toArray()));
+
+            // 设置计算后的距离
+            double rst = ((MWNumericArray) oriRst[0]).getDouble();
+            experimentType1.setDistance(rst);
+            // 设置图片列表
+            ArrayList<String> imageList = new ArrayList<>();
+            for (String imgFilename : ((String[]) ((MWStringArray) oriRst[1]).toArray()))
+                imageList.add("./" + EXPERIMENT_RELATIVE_PATH + exprId + "/" + imgFilename);
+            experimentType1.setImageList(imageList);
+            // 设置图片描述
+
 
             matlabUtil.dispose();
-            double rst = ((MWNumericArray) oriRst[0]).getDouble();
-            ((MWNumericArray) oriRst[0]).dispose();
+            ((MWArray) oriRst[0]).dispose();
+            ((MWArray) oriRst[1]).dispose();
+            ((MWArray) oriRst[2]).dispose();
 
-            return rst;
+
         } catch (MWException e) {
+            e.printStackTrace();
             throw new KnownException(ErrorInfoEnum.MATLAB_ERROR);
         }
     }
+
 }

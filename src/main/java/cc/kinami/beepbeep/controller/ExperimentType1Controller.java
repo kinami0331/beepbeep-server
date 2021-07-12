@@ -1,7 +1,10 @@
 package cc.kinami.beepbeep.controller;
 
+import cc.kinami.beepbeep.model.dto.AddMultiExprDTO;
+import cc.kinami.beepbeep.model.dto.CreateBeepExprGroupDTO;
 import cc.kinami.beepbeep.model.dto.CreateExperimentType1DTO;
 import cc.kinami.beepbeep.model.dto.ResponseDTO;
+import cc.kinami.beepbeep.model.entity.BeepExprGroup;
 import cc.kinami.beepbeep.model.entity.ExperimentType1;
 import cc.kinami.beepbeep.service.ExperimentType1Service;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -60,6 +63,41 @@ public class ExperimentType1Controller {
     @RequestMapping(value = "/getChirp", method = RequestMethod.GET)
     public ResponseDTO<String> getChirpFile(@RequestParam("experimentId") int exprId) {
         return new ResponseDTO<>(200, "OK", experimentService.getChirpFile(exprId));
+    }
+
+    @RequestMapping(value = "/group/create", method = RequestMethod.POST)
+    public ResponseDTO<Integer> createExperimentGroup(
+            @RequestBody CreateBeepExprGroupDTO createBeepExprGroupDTO
+    ) {
+
+        return new ResponseDTO<>(200, "OK", experimentService.createExprGroup(createBeepExprGroupDTO));
+    }
+
+    @RequestMapping(value = "/group/add", method = RequestMethod.POST)
+    public ResponseDTO<String> addMultiExpr(
+            @RequestBody AddMultiExprDTO addMultiExprDTO
+    ) {
+        experimentService.addMultiExpr(addMultiExprDTO);
+        return new ResponseDTO<>(200, "OK", "");
+    }
+
+    @RequestMapping(value = "/group", method = RequestMethod.GET)
+    public ResponseDTO<BeepExprGroup> getExprGroup(
+            @RequestParam("experimentGroupId") int id
+    ) {
+        return new ResponseDTO<>(200, "OK", experimentService.getExprGroup(id));
+    }
+
+    @RequestMapping(value = "", method = RequestMethod.GET)
+    public ResponseDTO<ExperimentType1> getExpr(
+            @RequestParam("experimentId") int id
+    ) {
+        return new ResponseDTO<>(200, "OK", experimentService.getExpr(id));
+    }
+
+    @RequestMapping(value = "/group/list", method = RequestMethod.GET)
+    public ResponseDTO<List<BeepExprGroup>> getExprGroupList() {
+        return new ResponseDTO<>(200, "OK", experimentService.getExprGroupList());
     }
 
 }
