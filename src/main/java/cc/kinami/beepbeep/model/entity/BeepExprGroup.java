@@ -22,4 +22,7 @@ public class BeepExprGroup {
     private List<BeepMultiExpr> beepMultiExprList;
     private String exprAbstract;
     private Double realDistance;
+    // 图片信息
+    private List<String> imageList;
+    private List<String> imageDescriptionList;
 }

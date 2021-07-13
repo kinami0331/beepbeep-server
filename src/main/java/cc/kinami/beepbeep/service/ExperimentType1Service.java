@@ -33,6 +33,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
@@ -129,6 +130,8 @@ public class ExperimentType1Service {
                 .exprAbstract(createBeepExprGroupDTO.getExprAbstract())
                 .beepMultiExprList(new ArrayList<>())
                 .realDistance(createBeepExprGroupDTO.getRealDistance())
+                .imageList(new ArrayList<>())
+                .imageDescriptionList(new ArrayList<>())
                 .build();
 
         beepExprGroupRepository.save(beepExprGroup);
@@ -140,6 +143,18 @@ public class ExperimentType1Service {
     public void addMultiExpr(AddMultiExprDTO addMultiExprDTO) {
         BeepExprGroup beepExprGroup = beepExprGroupRepository.findByExperimentGroupId(addMultiExprDTO.getExperimentGroupId());
         beepExprGroup.getBeepMultiExprList().add(addMultiExprDTO.getBeepMultiExpr());
+        if (beepExprGroup.getImageList().isEmpty()) {
+            ExperimentType1 experimentType1 = experimentType1Repository.findByExperimentId(addMultiExprDTO
+                    .getBeepMultiExpr()
+                    .getExprIdList()
+                    .get(1));
+            ArrayList<String> groupImageList = new ArrayList<>();
+            for (String imgPath : experimentType1.getImageList()) {
+                groupImageList.add(new File(imgPath).getName());
+            }
+            beepExprGroup.setImageList(groupImageList);
+            beepExprGroup.setImageDescriptionList(experimentType1.getImageDescriptionList());
+        }
         beepExprGroupRepository.save(beepExprGroup);
     }
 
@@ -384,6 +399,10 @@ public class ExperimentType1Service {
             for (String imgFilename : ((String[]) ((MWStringArray) oriRst[1]).toArray()))
                 imageList.add("./" + EXPERIMENT_RELATIVE_PATH + exprId + "/" + imgFilename);
             experimentType1.setImageList(imageList);
+            // 设置图片描述
+            ArrayList<String> imageDescriptionList = new ArrayList<>();
+            Collections.addAll(imageDescriptionList, ((String[]) ((MWStringArray) oriRst[2]).toArray()));
+            experimentType1.setImageDescriptionList(imageDescriptionList);
 
             matlabUtil.dispose();
             ((MWArray) oriRst[0]).dispose();
