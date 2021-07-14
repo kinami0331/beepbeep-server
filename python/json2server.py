@@ -2,9 +2,9 @@ import json
 from beep_http_client import create_expr_group, add_expr_to_group
 from beep_http_client import get_device_list
 
-json_file_name = "./output/test.json"
-expr_abstract = "实验描述"
-real_distance = 1.2
+json_file_name = "./output/0713_expr_27.json"
+expr_abstract = "比刚才靠近了点"
+real_distance = 2.117
 
 experimentGroupId = create_expr_group(get_device_list(), expr_abstract,
                                       real_distance)

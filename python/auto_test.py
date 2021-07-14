@@ -1,11 +1,12 @@
 import os
 import json
+import time
 from beep_http_client import get_device_list, create_expr, expr_begin
 
 # 每个参数的试验次数
-EXPR_N = 5
+EXPR_N = 6
 # 实验结果文件名（csv格式）
-OUTPUT_FILE_NAME = "test.json"
+OUTPUT_FILE_NAME = "0713_expr_27.json"
 
 SOUND_SPEED = 346.5
 parameter_list = [
@@ -14,11 +15,15 @@ parameter_list = [
     # fs f_begin f_End chirp_time warm_time sound_speed
 
     # 信号长度
-    (44100, 2000, 6000, 50, 10, SOUND_SPEED),
-    (44100, 2000, 6000, 100, 10, SOUND_SPEED),
+    # (44100, 2000, 8000, 50, 10, SOUND_SPEED),
+    # (44100, 2000, 6000, 100, 10, SOUND_SPEED),
     # (44100, 2000, 6000, 150, 10, SOUND_SPEED),
     # (44100, 2000, 6000, 200, 10, SOUND_SPEED),
     # (44100, 2000, 6000, 250, 10, SOUND_SPEED),
+    # (44100, 2000, 8000, 100, 10, SOUND_SPEED),
+    # (44100, 2000, 8000, 150, 10, SOUND_SPEED),
+    # (44100, 2000, 8000, 200, 10, SOUND_SPEED),
+    # (44100, 2000, 8000, 250, 10, SOUND_SPEED),
     # 频段
     # (44100, 2000, 6000, 100, 10, SOUND_SPEED), 前面测过了，直接比较
     # (44100, 7000, 11000, 100, 10, SOUND_SPEED),
@@ -29,8 +34,8 @@ parameter_list = [
     # (44100, 2000, 8000, 100, 10, SOUND_SPEED),
     # (44100, 2000, 10000, 100, 10, SOUND_SPEED),
     # (44100, 2000, 12000, 100, 10, SOUND_SPEED),
-    # # warm
-    # # (44100, 2000, 6000, 100, 10, SOUND_SPEED), 前面测过了，直接比较
+    # 超声波
+    (44100, 16000, 20000, 100, 10, SOUND_SPEED), 
     # (44100, 2000, 6000, 100, 0, SOUND_SPEED),
 ]
 
@@ -75,6 +80,9 @@ def start_expr():
             OUTPUT_PATH + OUTPUT_FILE_NAME) > 0:
         print("当前文件不为空！请注意是否覆盖")
         exit(0)
+    else:
+        f = open(OUTPUT_PATH + OUTPUT_FILE_NAME, "w", encoding="utf-8") 
+        f.close()
 
     for parameter in parameter_list:
         print("parameter: " + str(parameter))
@@ -101,4 +109,5 @@ def start_expr():
 
 
 if __name__ == "__main__":
+    # time.sleep(10)
     start_expr()

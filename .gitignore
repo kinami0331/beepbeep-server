@@ -4,3 +4,4 @@ target/
 /matlab/jar/*
 /matlab/data/*
 /matlab/output/*
+/python/output/*
