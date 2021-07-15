@@ -243,7 +243,7 @@ public class ExperimentType1Service {
                 log.info("Experiment status: START_RECORD_ACK");
 
                 try {
-                    Thread.sleep(50);
+                    Thread.sleep(150);
                 } catch (Exception e) {
                     e.printStackTrace();
                     throw new RuntimeException();
