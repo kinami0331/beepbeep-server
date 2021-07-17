@@ -43,7 +43,7 @@ saveas(fig,strcat(outputFigPath, "received_signal_fft.png"));
 
 %% 频谱图
 fig = figure;
-[y,f,t,p] = spectrogram(originY, 256, 250, 256, samplingRate);
+[y,f,t,p] = spectrogram(originY, 512, 400, 512, samplingRate);
 surf(t,f,10*log10(abs(p)),'EdgeColor','none');  
 axis xy; axis tight; colormap(jet); 
 view(-45,45);
