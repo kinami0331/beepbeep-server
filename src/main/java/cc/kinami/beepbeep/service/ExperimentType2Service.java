@@ -112,6 +112,7 @@ public class ExperimentType2Service {
                 .experimentId(experimentId)
                 .mic(experimentType2.getTargetDeviceMic())
                 .experimentType(2)
+                .fs(48000)
                 .build());
         tarDeviceWs.waitUntil(ProcessControlEnum.START_RECORD_ACK);
 

@@ -17,4 +17,5 @@ public class ControlDTO {
     String to;
     Integer experimentType;
     Integer mic;
+    Integer fs;
 }

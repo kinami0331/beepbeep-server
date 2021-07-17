@@ -227,6 +227,7 @@ public class ExperimentType1Service {
                         .to(device1)
                         .experimentType(1)
                         .mic(0)
+                        .fs((int) Math.round(experimentType1.getChirpParameters().getSamplingRate()))
                         .build());
                 device2ws.sendControlInfo(ControlDTO.builder()
                         .controlInfo(ProcessControlEnum.START_RECORD)
@@ -235,6 +236,7 @@ public class ExperimentType1Service {
                         .to(device2)
                         .experimentType(1)
                         .mic(0)
+                        .fs((int) Math.round(experimentType1.getChirpParameters().getSamplingRate()))
                         .build());
 
                 device1ws.waitUntil(ProcessControlEnum.START_RECORD_ACK);
