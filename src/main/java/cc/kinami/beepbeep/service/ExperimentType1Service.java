@@ -260,7 +260,7 @@ public class ExperimentType1Service {
                 device1ws.waitUntil(ProcessControlEnum.PLAY_CHIRP_ACK);
                 log.info(String.format("Experiment status: PLAY_CHIRP_ACK by device[%s]", device1));
                 try {
-                    Thread.sleep(100);
+                    Thread.sleep(200);
                 } catch (Exception e) {
                     e.printStackTrace();
                     throw new RuntimeException();
@@ -275,7 +275,7 @@ public class ExperimentType1Service {
                 device2ws.waitUntil(ProcessControlEnum.PLAY_CHIRP_ACK);
                 log.info(String.format("Experiment status: PLAY_CHIRP_ACK by device[%s]", device2));
                 try {
-                    Thread.sleep(100);
+                    Thread.sleep(200);
                 } catch (Exception e) {
                     e.printStackTrace();
                     throw new RuntimeException();

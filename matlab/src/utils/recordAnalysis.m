@@ -1,5 +1,5 @@
 function recordAnalysis(originFile, recordFile, outputFigPath)
-samplingRate = 44100;
+samplingRate = 48000;
 
 %% 原始信号
 [originY, originFs] = audioread(originFile);
@@ -13,6 +13,7 @@ saveas(fig, strcat(outputFigPath, "original_signal.png"))
 
 [recordY, recordFs] = audioread(recordFile);
 recordY = recordY(floor(0.2 * samplingRate):length(recordY));
+recordY = recordY(1:length(recordY)-0.5*samplingRate);
 recordT = (0:length(recordY)-1)/recordFs;
 recordLen = length(recordY);
 fig = figure;
